@@ -1,6 +1,6 @@
 # 照護派遣平台 (Care Dispatch Platform)
 
-這是一個居家照護服務的管理平台，目標是把個案管理、排班、打卡、請假和薪資計算整合起來，方便超級管理員、督導和照護人員使用。專案用 Laravel 11 做後端，Vue.js 3 做前端，搭配 Docker 部署。目前倉庫只包含部分關鍵代碼，完整結構需透過腳本生成，然後手動補充套件和邏輯。架構已經打好，接下來就是實作業務功能。
+這是一個居家照護服務的管理平台，目標是把個案管理、排班、打卡、請假和薪資計算整合起來，方便超級管理員、督導和照護人員使用。專案用 Laravel 11 做後端，Vue.js 3 做前端，搭配 Docker 部署。目前倉庫只包含部分關鍵代碼，完整結構需透過 `care_dispatch_platform.sh` 腳本生成，然後手動補充套件和邏輯。架構已經打好，接下來就是實作業務功能。
 
 ## 專案概述
 
@@ -429,6 +429,173 @@ docker-compose exec vue_app_dev npm install
   }
   </script>
   ```
+
+## 常見問題與解答
+
+以下是一些開發過程中可能遇到的問題和解決方法，幫你快速上手或排查問題。
+
+### Q1: 如何處理 Laravel Sanctum 的 CSRF 保護？
+**答**：Sanctum 需要先獲取 CSRF cookie 才能發送 POST 請求（如登入）。在前端，使用 `axios.get('/sanctum/csrf-cookie')` 獲取 cookie，然後再發送請求。後端已配置 `EnsureFrontendRequestsAreStateful` 中介軟體，確保跨域請求正確處理。如果遇到 401 或 419 錯誤，檢查：
+- `laravel/.env` 中的 `SESSION_DOMAIN` 和 `SANCTUM_STATEFUL_DOMAINS` 是否設為 `localhost`。
+- 前端的 `vite.config.js` 是否正確代理 `/api` 請求到 Nginx。
+- 範例：`vue_app/src/stores/auth.js` 中的 `login` 方法已實現 CSRF 處理。
+
+### Q2: 為什麼 API 請求返回 404？
+**答**：這通常是路由或 Nginx 配置問題。排查步驟：
+- 確認 `laravel/routes/api.php` 中有正確的路由定義（例如 `/api/login`）。
+- 檢查 `nginx/default.conf` 是否將 `/api/` 請求轉發到 `laravel_app:9000`。
+- 運行 `docker-compose logs nginx` 查看是否有錯誤。
+- 解決方法：重啟 Nginx（`docker-compose restart nginx`）或確認 Laravel 容器正常（`docker-compose ps`）。
+
+### Q3: Vue 頁面空白或無法加載？
+**答**：可能是 Vite 伺服器問題或代理配置錯誤。檢查：
+- `vue_app/vite.config.js` 中的代理設定，確保 `/api` 指向 `http://nginx`。
+- 確認 `docker-compose.yml` 中的 `vue_app_dev` 服務是否運行（端口 5173）。
+- 運行 `docker-compose logs vue_app_dev` 查看 Vite 日誌。
+- 解決方法：重啟 Vue 容器（`docker-compose restart vue_app_dev`）或重新安裝依賴（`npm install`）。
+
+### Q4: 如何在 Laravel 中實現角色權限控制？
+**答**：專案使用 Laravel 的 Policy 和中介軟體實現角色權限。例如：
+- `app/Policies/UserPolicy.php` 定義了 `isSuperAdmin`、`isSupervisor` 等方法。
+- 路由中介軟體（`can:isSuperAdmin`）在 `routes/api.php` 中限制訪問。
+- 範例：超級管理員才能訪問 `/api/admin/users`，由以下程式碼控制：
+  ```php
+  Route::middleware('can:isSuperAdmin')->prefix('admin')->group(function () {
+      Route::apiResource('users', \App\Http\Controllers\Admin\UserController::class);
+  });
+  ```
+- 如果需要新增權限，修改 `UserPolicy.php` 或定義新 Policy。
+
+### Q5: 如何讓 Vue 前端動態顯示後端數據？
+**答**：使用 Axios 從後端 API 獲取數據，結合 Vue 的響應式系統。例如，顯示用戶列表：
+```vue
+<!-- vue_app/src/views/admin/UserManagementView.vue -->
+<template>
+  <div>
+    <h2>用戶列表</h2>
+    <ul>
+      <li v-for="user in users" :key="user.id">{{ user.name }} ({{ user.role }})</li>
+    </ul>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+
+const users = ref([]);
+
+onMounted(async () => {
+  try {
+    const response = await axios.get('/api/admin/users');
+    users.value = response.data.data;
+  } catch (error) {
+    console.error('獲取用戶失敗：', error);
+  }
+});
+</script>
+```
+- 確保後端的 `UserController::index` 返回用戶數據：
+```php
+public function index()
+{
+    return response()->json(['data' => User::all()]);
+}
+```
+
+### Q6: 如何實現薪資計算邏輯？
+**答**：薪資計算需結合 `clock_records`、`assignments` 和 `compensation_rules` 表。範例邏輯：
+```php
+// laravel/app/Http/Controllers/Caregiver/PayrollController.php
+public function calculatePayroll(Request $request, $userId)
+{
+    $records = ClockRecord::where('user_id', $userId)
+        ->whereBetween('clock_in', [$request->start_date, $request->end_date])
+        ->get();
+    $totalHours = $records->sum(fn($record) => $record->clock_out->diffInHours($record->clock_in));
+    $rule = CompensationRule::where('role', User::find($userId)->role)->first();
+    $amount = $totalHours * $rule->hourly_rate;
+
+    $payroll = Payroll::create([
+        'user_id' => $userId,
+        'total_hours' => $totalHours,
+        'amount' => $amount,
+        'period_start' => $request->start_date,
+        'period_end' => $request->end_date,
+    ]);
+
+    return response()->json(['payroll' => $payroll]);
+}
+```
+- 前端需發送請求並顯示結果，例如：
+```vue
+<!-- vue_app/src/views/caregiver/PayrollView.vue -->
+<template>
+  <div>
+    <h2>薪資查詢</h2>
+    <input v-model="startDate" type="date" />
+    <input v-model="endDate" type="date" />
+    <button @click="fetchPayroll">查詢</button>
+    <p v-if="payroll">總時數：{{ payroll.total_hours }} 小時，金額：{{ payroll.amount }}</p>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import axios from 'axios';
+import { useAuthStore } from '../stores/auth';
+
+const authStore = useAuthStore();
+const startDate = ref('');
+const endDate = ref('');
+const payroll = ref(null);
+
+async function fetchPayroll() {
+  try {
+    const response = await axios.get(`/api/caregiver/payroll/${authStore.user.id}`, {
+      params: { start_date: startDate.value, end_date: endDate.value },
+    });
+    payroll.value = response.data.payroll;
+  } catch (error) {
+    console.error('查詢失敗：', error);
+  }
+}
+</script>
+```
+
+### Q7: Docker 容器如何優化效能？
+**答**：目前的 `docker-compose.yml` 適合開發，但可做以下優化：
+- 使用多階段構建（multi-stage build）減少 Laravel 和 Vue 的映像大小。
+- 為 MySQL 添加持久化卷配置（已包含 `db_data`）。
+- 生產環境改用 `vue_app/Dockerfile`（而非 `Dockerfile.dev`）生成靜態檔案：
+```dockerfile
+# vue_app/Dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+- 更新 `docker-compose.yml`：
+```yaml
+vue_app:
+  build:
+    context: ./vue_app
+    dockerfile: Dockerfile
+  volumes:
+    - ./vue_app/dist:/usr/share/nginx/html
+  depends_on:
+    - nginx
+  networks:
+    - care-network
+```
 
 ## 問題排查
 
