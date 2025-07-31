@@ -1,10 +1,10 @@
 # 照護派遣平台 (Care Dispatch Platform)
 
-這是一個用來管理居家照護服務的平台，目標是把個案管理、排班、打卡、請假和薪資計算整合在一起，方便管理員、督導和照護人員使用。技術上用 Laravel 和 Vue.js，搭配 Docker 部署，架構簡單但能應付實際需求。專案目前是骨架，核心功能還需要實作，但基礎都打好了，接下來就是填邏輯和優化。
+這是一個居家照護服務的管理平台，目標是把個案管理、排班、打卡、請假和薪資計算整合起來，方便超級管理員、督導和照護人員使用。專案用 Laravel 11 做後端，Vue.js 3 做前端，搭配 Docker 部署。目前倉庫只包含部分關鍵代碼，完整結構需透過腳本生成，然後手動補充套件和邏輯。架構已經打好，接下來就是實作業務功能。
 
 ## 專案概述
 
-- **目標**：簡化居家照護的排程和管理，支援多角色（超級管理員、督導、照護人員），提供打卡、請假和薪資自動化功能。
+- **目標**：簡化居家照護的排程和管理，支援多角色（超級管理員、督導、照護人員），提供考勤、請假和薪資自動化功能。
 - **技術棧**：
   - 後端：Laravel 11 (PHP 8.3)
   - 前端：Vue.js 3 (Vite, Pinia, Vue Router)
@@ -13,14 +13,14 @@
   - 容器化：Docker & Docker Compose
 - **架構**：
   - 前後端分離，後端提供 RESTful API，前端負責互動介面。
-  - Docker 容器化，包含 Nginx、Laravel、MySQL 和 Vue 開發伺服器。
   - 使用 Laravel Sanctum 處理認證，Pinia 管理前端狀態。
+  - Docker 容器化，確保環境一致性。
 
 ## 資料庫結構
 
-核心表格如下，涵蓋了所有業務需求：
+核心表格如下，涵蓋所有業務需求：
 
-- `users`：用戶資料，包含角色（super_admin, supervisor, caregiver 等）。
+- `users`：用戶資料，包含角色（`super_admin`, `supervisor`, `caregiver`, `nutritionist`, `physiotherapist`）。
 - `patients`：個案資料，關聯督導。
 - `service_items`：服務項目及其價格。
 - `care_plans`：照護計畫，定義服務頻率和時長。
@@ -30,49 +30,73 @@
 - `compensation_rules`：薪資規則。
 - `payrolls`：薪資單。
 
-## 安裝與執行
+## 下載與設置
 
-以下是本地開發環境的建置步驟，假設你有 Docker 和 Docker Compose。
+目前倉庫只包含部分關鍵代碼，完整專案結構需透過 `care_dispatch_platform.sh` 腳本生成。以下是下載、設置和補充套件的步驟：
 
-1. **Clone 專案並進入目錄**：
-   ```bash
-   git clone <your-repo-url>
-   cd care_dispatch_platform
-   ```
+### 1. 下載倉庫
+```bash
+git clone https://github.com/BpsEason/care_dispatch_platform.git
+cd care_dispatch_platform
+```
 
-2. **啟動 Docker 服務**：
-   ```bash
-   docker-compose up --build -d
-   ```
-   # 註解：這會啟動 Nginx、Laravel、MySQL 和 Vue 容器，可能需要幾分鐘。
+# 註解：如果倉庫是空的，可以直接跳到步驟 2 使用腳本生成結構。
 
-3. **安裝 Laravel 依賴並初始化資料庫**：
-   ```bash
-   docker-compose exec laravel_app composer install --optimize-autoloader
-   docker-compose exec laravel_app php artisan migrate --seed
-   docker-compose exec laravel_app php artisan key:generate
-   ```
-   # 註解：migrate 會建表，seed 會生成測試用戶（admin@example.com, password: password）。
+### 2. 運行腳本生成專案結構
+假設你有 `care_dispatch_platform.sh` 腳本（需另行取得，可能在內部共享或自行保存）：
+```bash
+chmod +x care_dispatch_platform.sh
+./care_dispatch_platform.sh
+```
 
-4. **訪問應用程式**：
-   - 網址：`http://localhost`
-   - 測試帳號：
-     - 超級管理員：`admin@example.com` / `password`
-     - 督導：`supervisor@example.com` / `password`
-     - 照護人員：`caregiver@example.com` / `password`
+# 註解：腳本會生成 `docker-compose.yml`、Laravel 後端 (`laravel/`)、Vue 前端 (`vue_app/`) 和 Nginx 配置 (`nginx/`)。
 
-5. **開發時注意**：
-   - Laravel API 跑在 `http://localhost/api`。
-   - Vue 開發伺服器跑在 `http://localhost:5173`，由 Nginx 代理。
-   - 改動後端程式碼後，可能需要重啟容器：`docker-compose restart laravel_app`。
+### 3. 安裝依賴
+專案需要手動安裝 Composer 和 npm 套件：
+
+#### 後端依賴 (Laravel)
+```bash
+docker-compose up -d  # 先啟動容器
+docker-compose exec laravel_app composer install --optimize-autoloader
+docker-compose exec laravel_app php artisan key:generate
+```
+
+# 註解：這會安裝 Laravel 的依賴（如 `laravel/sanctum`）並生成應用程式金鑰。
+
+#### 前端依賴 (Vue.js)
+```bash
+docker-compose exec vue_app_dev npm install
+```
+
+# 註解：這會安裝 Vue.js 的依賴（如 `vue`, `pinia`, `axios`, `@fullcalendar/*`）。
+
+### 4. 初始化資料庫
+```bash
+docker-compose exec laravel_app php artisan migrate --seed
+```
+
+# 註解：這會創建資料表並插入測試用戶（`admin@example.com`, `supervisor@example.com`, `caregiver@example.com`，密碼均為 `password`）。
+
+### 5. 啟動應用程式
+```bash
+docker-compose up -d
+```
+
+- 訪問網址：`http://localhost`
+- 測試帳號：
+  - 超級管理員：`admin@example.com` / `password`
+  - 督導：`supervisor@example.com` / `password`
+  - 照護人員：`caregiver@example.com` / `password`
+
+# 註解：API 請求走 `http://localhost/api`，前端開發伺服器跑在 `http://localhost:5173`（由 Nginx 代理）。
 
 ## 核心代碼範例
 
-以下是一些關鍵代碼片段，展示專案的設計思路。
+以下是關鍵代碼片段，展示專案的核心功能和設計思路。倉庫目前只有部分代碼，完整結構需靠腳本生成。
 
 ### 後端：用戶登入 (Laravel)
 
-`app/Http/Controllers/Auth/LoginController.php`
+`laravel/app/Http/Controllers/Auth/LoginController.php`
 
 ```php
 <?php
@@ -88,20 +112,20 @@ class LoginController extends Controller
 {
     public function login(Request $request)
     {
-        // 驗證輸入
+        // 驗證輸入的 email 和 password
         $request->validate([
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        // 嘗試登入
+        // 嘗試登入，失敗則拋出錯誤
         if (! Auth::attempt($request->only('email', 'password'))) {
             throw ValidationException::withMessages([
                 'email' => [trans('auth.failed')],
             ]);
         }
 
-        // 返回用戶資料
+        // 成功則返回用戶資料
         return response()->json([
             'message' => 'Logged in successfully',
             'user' => $request->user(),
@@ -110,21 +134,21 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
+        // 清除 session 和當前 token
         Auth::guard('web')->logout();
         if ($request->user()) {
-            $request->user()->currentAccessToken()->delete(); // 撤銷 token
+            $request->user()->currentAccessToken()->delete();
         }
-
         return response()->json(['message' => 'Logged out successfully']);
     }
 }
 ```
 
-# 註解：這段程式碼處理用戶登入和登出，使用 Sanctum 管理認證。登入成功後返回用戶資料，登出時清除 session 和 token。
+# 註解：這段程式碼處理用戶登入和登出，使用 Sanctum 管理認證，確保 API 安全。
 
 ### 後端：API 路由 (Laravel)
 
-`routes/api.php`
+`laravel/routes/api.php`
 
 ```php
 <?php
@@ -157,11 +181,11 @@ Route::middleware('sanctum:auth')->group(function () {
 });
 ```
 
-# 註解：路由按角色分組，使用中介軟體檢查權限。Sanctum 保護認證路由，確保只有登入用戶能訪問。
+# 註解：路由按角色分組，使用中介軟體檢查權限，確保只有正確角色能訪問對應 API。
 
 ### 前端：登入頁面 (Vue)
 
-`src/views/LoginView.vue`
+`vue_app/src/views/LoginView.vue`
 
 ```vue
 <template>
@@ -193,7 +217,7 @@ const form = reactive({
 });
 
 async function handleLogin() {
-  await authStore.login(form); // 呼叫 Pinia 的 login 方法
+  await authStore.login(form); // 呼叫 Pinia 的 login 方法發送登入請求
 }
 </script>
 
@@ -212,11 +236,11 @@ async function handleLogin() {
 </style>
 ```
 
-# 註解：這個 Vue 組件提供登入表單，與 Pinia 的 auth store 互動，發送登入請求到後端。
+# 註解：這個 Vue 組件提供簡單的登入表單，與 Pinia 的 auth store 串接，發送請求到後端。
 
 ### 前端：認證狀態管理 (Pinia)
 
-`src/stores/auth.js`
+`vue_app/src/stores/auth.js`
 
 ```javascript
 import { defineStore } from 'pinia';
@@ -242,11 +266,12 @@ export const useAuthStore = defineStore('auth', {
             this.loading = true;
             this.error = null;
             try {
-                await axios.get(`${API_BASE_URL}/sanctum/csrf-cookie`); // 獲取 CSRF cookie
+                // 先獲取 CSRF cookie
+                await axios.get(`${API_BASE_URL}/sanctum/csrf-cookie`);
                 const response = await axios.post(`${API_BASE_URL}/login`, credentials);
                 this.user = response.data.user;
                 localStorage.setItem('user', JSON.stringify(this.user));
-                // 根據角色導向
+                // 根據角色導向對應頁面
                 if (this.isSuperAdmin) router.push({ name: 'AdminDashboard' });
                 else if (this.isSupervisor) router.push({ name: 'SupervisorDashboard' });
                 else if (this.isCaregiver) router.push({ name: 'CaregiverSchedule' });
@@ -275,39 +300,153 @@ export const useAuthStore = defineStore('auth', {
 });
 ```
 
-# 註解：Pinia 管理用戶狀態，處理登入和登出邏輯，並將用戶資訊存到 localStorage。
+# 註解：Pinia 管理用戶狀態，處理登入和登出，並將用戶資訊存到 localStorage，確保頁面刷新後狀態不丟失。
 
-## 目前狀態與待辦事項
+## 手動補充套件與程式碼
 
-目前專案是個骨架，基礎架構和資料模型都齊了，但功能還沒實作完。以下是待辦事項：
+目前倉庫可能只包含部分代碼，完整專案需靠腳本生成。以下是手動補充的指引：
 
-1. **實作控制器邏輯**：
-   - 像 `Admin/UserController.php`、`Supervisor/PatientController.php` 這些控制器需要加上 CRUD 邏輯。
-   - 薪資計算邏輯（根據 `clock_records` 和 `compensation_rules` 生成 `payrolls`）也要實作。
+### 1. 檢查必要檔案
+確保以下檔案存在（由 `care_dispatch_platform.sh` 生成）：
+- `docker-compose.yml`
+- `laravel/`：包含 `Dockerfile`、`.env`、控制器、模型、遷移等。
+- `vue_app/`：包含 `Dockerfile.dev`、`package.json`、`vite.config.js`、前端程式碼。
+- `nginx/`：包含 `default.conf`。
 
-2. **完善前端視圖**：
-   - Vue 視圖（例如 `admin/UserManagementView.vue`）需要跟後端 API 串接，實現數據顯示和表單提交。
-   - `CaregiverSchedule.vue` 的 FullCalendar 要從 `/api/caregiver/schedule` 動態拉數據。
+如果缺少檔案，重新運行腳本或從備份復原。
 
-3. **生產環境配置**：
-   - 編譯 Vue 靜態檔案（`npm run build`），調整 Nginx 指向 `vue_app/dist`。
-   - 加上 HTTPS 和環境變數加密。
+### 2. 補充依賴
+腳本生成的 `laravel/composer.json` 和 `vue_app/package.json` 可能未包含所有依賴，需手動添加：
 
-4. **自動化功能**：
-   - 用 Laravel 的 `schedule` 實現薪資單自動生成。
-   - 清理過期的 `personal_access_tokens`。
+#### 後端 (Laravel)
+編輯 `laravel/composer.json`（如果不存在，創建以下內容）：
+```json
+{
+    "require": {
+        "php": "^8.3",
+        "laravel/framework": "^11.0",
+        "laravel/sanctum": "^4.0"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "phpunit/phpunit": "^11.0"
+    }
+}
+```
 
-5. **測試與錯誤處理**：
-   - 加上 PHPUnit 測試後端邏輯，Vitest 測試 Vue 組件。
-   - 加強錯誤提示（例如 API 失敗或網路問題）。
+然後運行：
+```bash
+docker-compose exec laravel_app composer install
+```
+
+#### 前端 (Vue.js)
+確認 `vue_app/package.json` 包含以下依賴：
+```json
+{
+  "dependencies": {
+    "@fullcalendar/core": "^6.1.11",
+    "@fullcalendar/daygrid": "^6.1.11",
+    "@fullcalendar/interaction": "^6.1.11",
+    "@fullcalendar/timegrid": "^6.1.11",
+    "@fullcalendar/vue": "^6.1.11",
+    "axios": "^1.7.2",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.29",
+    "vue-router": "^4.3.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.5",
+    "vite": "^5.3.1"
+  }
+}
+```
+
+然後運行：
+```bash
+docker-compose exec vue_app_dev npm install
+```
+
+### 3. 補充業務邏輯
+目前控制器（如 `Admin/UserController.php`）和 Vue 視圖（如 `admin/UserManagementView.vue`）是空殼，需實作：
+- **後端**：在控制器中加入 CRUD 邏輯，例如：
+  ```php
+  // laravel/app/Http/Controllers/Admin/UserController.php
+  public function store(Request $request)
+  {
+      $validated = $request->validate([
+          'name' => 'required|string|max:255',
+          'email' => 'required|email|unique:users',
+          'password' => 'required|string|min:8',
+          'role' => 'required|in:super_admin,supervisor,caregiver,nutritionist,physiotherapist',
+      ]);
+      $user = User::create([
+          'name' => $validated['name'],
+          'email' => $validated['email'],
+          'password' => Hash::make($validated['password']),
+          'role' => $validated['role'],
+      ]);
+      return response()->json(['message' => 'User created', 'user' => $user], 201);
+  }
+  ```
+- **前端**：在視圖中加入 API 請求，例如：
+  ```vue
+  <!-- vue_app/src/views/admin/UserManagementView.vue -->
+  <template>
+    <div>
+      <h2>用戶管理</h2>
+      <form @submit.prevent="createUser">
+        <input v-model="form.name" placeholder="姓名" required />
+        <input v-model="form.email" type="email" placeholder="電子郵件" required />
+        <input v-model="form.password" type="password" placeholder="密碼" required />
+        <select v-model="form.role">
+          <option value="super_admin">超級管理員</option>
+          <option value="supervisor">督導</option>
+          <option value="caregiver">照護人員</option>
+        </select>
+        <button type="submit">新增用戶</button>
+      </form>
+    </div>
+  </template>
+
+  <script setup>
+  import { reactive } from 'vue';
+  import axios from 'axios';
+
+  const form = reactive({
+    name: '',
+    email: '',
+    password: '',
+    role: 'caregiver',
+  });
+
+  async function createUser() {
+    try {
+      await axios.post('/api/admin/users', form);
+      alert('用戶新增成功');
+    } catch (error) {
+      alert('新增失敗：' + (error.response?.data?.message || '未知錯誤'));
+    }
+  }
+  </script>
+  ```
 
 ## 問題排查
 
-- **容器啟動失敗**：檢查 Docker 是否正常運行，確認端口（80, 3306, 5173, 9000）沒被佔用。
-- **API 請求 404**：確認 Nginx 配置（`nginx/default.conf`）和 Laravel 路由（`routes/api.php`）。
-- **Vue 頁面空白**：檢查 `vite.config.js` 的代理設定，或重啟 Vite 容器。
-- **資料庫連線錯誤**：確認 `laravel/.env` 的 DB_HOST 是 `mysql_db`，並檢查 MySQL 容器是否正常。
+- **無法下載倉庫**：確認網路連線，或檢查倉庫 URL 是否正確（`https://github.com/BpsEason/care_dispatch_platform.git`）。
+- **容器啟動失敗**：檢查 Docker 是否運行，確認端口（80, 3306, 5173, 9000）未被佔用。
+- **API 請求 404**：確認 `nginx/default.conf` 和 `laravel/routes/api.php` 是否正確，或重啟 Nginx 和 Laravel 容器。
+- **Vue 頁面空白**：檢查 `vite.config.js` 的代理設定，或運行 `docker-compose restart vue_app_dev`。
+- **資料庫連線錯誤**：確認 `laravel/.env` 的 `DB_HOST=mysql_db`，檢查 MySQL 容器狀態（`docker-compose logs mysql_db`）。
+
+## 待辦事項
+
+專案目前是骨架，功能需手動實作：
+1. **實作控制器邏輯**：補充 CRUD 操作，例如用戶管理、個案管理和薪資計算。
+2. **完善前端視圖**：實現與後端 API 的串接，顯示數據並處理表單。
+3. **生產環境配置**：編譯 Vue 靜態檔案（`npm run build`），調整 Nginx 指向 `vue_app/dist`。
+4. **自動化功能**：用 Laravel 的 `schedule` 實現薪資單自動生成。
+5. **測試**：加入 PHPUnit（後端）和 Vitest（前端）測試。
 
 ## 結語
 
-這專案的架構穩固，技術棧也都是業界常用的，適合快速開發和迭代。雖然現在是骨架，但只要把邏輯補上，就能變成一個實用的照護管理系統。如果有問題，直接在 issue 裡提，會盡快處理。
+這專案的架構簡單穩固，用 Laravel 和 Vue.js 搭出來的骨架很適合快速開發。雖然現在倉庫內容不完整，但跑一次腳本就能生成所有檔案，補上依賴和邏輯後就可以用。如果有問題，直接開 issue 或聯繫我，會幫忙看看。
