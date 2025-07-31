@@ -40,7 +40,7 @@ git clone https://github.com/BpsEason/care_dispatch_platform.git
 cd care_dispatch_platform
 ```
 
-# 註解：如果倉庫是空的，可以直接跳到步驟 2 使用腳本生成結構。
+## 註解：如果倉庫是空的，可以直接跳到步驟 2 使用腳本生成結構。
 
 ### 2. 運行腳本生成專案結構
 假設你有 `care_dispatch_platform.sh` 腳本（需另行取得，可能在內部共享或自行保存）：
@@ -49,7 +49,7 @@ chmod +x care_dispatch_platform.sh
 ./care_dispatch_platform.sh
 ```
 
-# 註解：腳本會生成 `docker-compose.yml`、Laravel 後端 (`laravel/`)、Vue 前端 (`vue_app/`) 和 Nginx 配置 (`nginx/`)。
+## 註解：腳本會生成 `docker-compose.yml`、Laravel 後端 (`laravel/`)、Vue 前端 (`vue_app/`) 和 Nginx 配置 (`nginx/`)。
 
 ### 3. 安裝依賴
 專案需要手動安裝 Composer 和 npm 套件：
@@ -61,21 +61,21 @@ docker-compose exec laravel_app composer install --optimize-autoloader
 docker-compose exec laravel_app php artisan key:generate
 ```
 
-# 註解：這會安裝 Laravel 的依賴（如 `laravel/sanctum`）並生成應用程式金鑰。
+## 註解：這會安裝 Laravel 的依賴（如 `laravel/sanctum`）並生成應用程式金鑰。
 
 #### 前端依賴 (Vue.js)
 ```bash
 docker-compose exec vue_app_dev npm install
 ```
 
-# 註解：這會安裝 Vue.js 的依賴（如 `vue`, `pinia`, `axios`, `@fullcalendar/*`）。
+## 註解：這會安裝 Vue.js 的依賴（如 `vue`, `pinia`, `axios`, `@fullcalendar/*`）。
 
 ### 4. 初始化資料庫
 ```bash
 docker-compose exec laravel_app php artisan migrate --seed
 ```
 
-# 註解：這會創建資料表並插入測試用戶（`admin@example.com`, `supervisor@example.com`, `caregiver@example.com`，密碼均為 `password`）。
+## 註解：這會創建資料表並插入測試用戶（`admin@example.com`, `supervisor@example.com`, `caregiver@example.com`，密碼均為 `password`）。
 
 ### 5. 啟動應用程式
 ```bash
@@ -88,7 +88,7 @@ docker-compose up -d
   - 督導：`supervisor@example.com` / `password`
   - 照護人員：`caregiver@example.com` / `password`
 
-# 註解：API 請求走 `http://localhost/api`，前端開發伺服器跑在 `http://localhost:5173`（由 Nginx 代理）。
+## 註解：API 請求走 `http://localhost/api`，前端開發伺服器跑在 `http://localhost:5173`（由 Nginx 代理）。
 
 ## 核心代碼範例
 
@@ -144,7 +144,7 @@ class LoginController extends Controller
 }
 ```
 
-# 註解：這段程式碼處理用戶登入和登出，使用 Sanctum 管理認證，確保 API 安全。
+## 註解：這段程式碼處理用戶登入和登出，使用 Sanctum 管理認證，確保 API 安全。
 
 ### 後端：API 路由 (Laravel)
 
@@ -181,7 +181,7 @@ Route::middleware('sanctum:auth')->group(function () {
 });
 ```
 
-# 註解：路由按角色分組，使用中介軟體檢查權限，確保只有正確角色能訪問對應 API。
+## 註解：路由按角色分組，使用中介軟體檢查權限，確保只有正確角色能訪問對應 API。
 
 ### 前端：登入頁面 (Vue)
 
@@ -236,7 +236,7 @@ async function handleLogin() {
 </style>
 ```
 
-# 註解：這個 Vue 組件提供簡單的登入表單，與 Pinia 的 auth store 串接，發送請求到後端。
+## 註解：這個 Vue 組件提供簡單的登入表單，與 Pinia 的 auth store 串接，發送請求到後端。
 
 ### 前端：認證狀態管理 (Pinia)
 
@@ -300,7 +300,7 @@ export const useAuthStore = defineStore('auth', {
 });
 ```
 
-# 註解：Pinia 管理用戶狀態，處理登入和登出，並將用戶資訊存到 localStorage，確保頁面刷新後狀態不丟失。
+## 註解：Pinia 管理用戶狀態，處理登入和登出，並將用戶資訊存到 localStorage，確保頁面刷新後狀態不丟失。
 
 ## 手動補充套件與程式碼
 
