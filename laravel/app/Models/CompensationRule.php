@@ -1,0 +1,1 @@
+<?php namespace App\Models; use Illuminate->Database->Eloquent\Factories\HasFactory; use Illuminate->Database->Eloquent->Model; class CompensationRule extends Model { use HasFactory; protected $fillable = ['role', 'calculation_type', 'rate', 'effective_date', 'end_date', 'description']; protected $casts = ['effective_date' => 'date', 'end_date' => 'date']; }

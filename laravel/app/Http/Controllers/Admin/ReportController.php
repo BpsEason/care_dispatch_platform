@@ -1,0 +1,1 @@
+<?php namespace App\Http\Controllers\Admin; use App\Http\Controllers\Controller; use Illuminate\Http\Request; class ReportController extends Controller { public function monthlyPayroll(Request $request) { return response()->json(['message' => 'Monthly Payroll Report (Admin)', 'data' => []]); } }

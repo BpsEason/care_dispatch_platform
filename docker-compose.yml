@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+    nginx:
+        image: nginx:stable-alpine
+        ports:
+            - "80:80"
+        volumes:
+            - ./nginx:/etc/nginx/conf.d
+            - ./vue_app/dist:/var/www/vue_app/dist # 將 Vue build 好的檔案掛載進來
+        depends_on:
+            - laravel_app
+            - vue_app_dev # 開發時依賴前端開發伺服器
+        networks:
+            - care-network
+
+    laravel_app:
+        build:
+            context: ./laravel
+            dockerfile: Dockerfile
+        container_name: laravel_app
+        restart: unless-stopped
+        volumes:
+            - ./laravel:/var/www/html
+            - /var/www/html/vendor # 防止 host 機器上的 vendor 覆蓋容器內的
+        ports:
+            - "9000:9000" # PHP-FPM 預設 port
+        environment:
+            # 從 laravel/.env 讀取這些變數
+            DB_CONNECTION: mysql
+            DB_HOST: mysql_db
+            DB_PORT: 3306
+            DB_DATABASE: care_dispatch_db
+            DB_USERNAME: care_user
+            DB_PASSWORD: secret
+            APP_KEY: 
+            APP_ENV: local
+            # Sanctum SPA URL
+            SANCTUM_STATEFUL_DOMAINS: localhost:80,localhost:5173 # 允許 Nginx 或 Vue Dev Server 存取
+            VITE_APP_URL: http://localhost # Vue App URL
+        depends_on:
+            - mysql_db
+        networks:
+            - care-network
+
+    mysql_db:
+        image: mysql:8.0
+        container_name: mysql_db
+        restart: unless-stopped
+        environment:
+            MYSQL_DATABASE: care_dispatch_db
+            MYSQL_ROOT_PASSWORD: secret # 使用相同的密碼，簡化設定
+            MYSQL_PASSWORD: secret
+            MYSQL_USER: care_user
+        volumes:
+            - db_data:/var/lib/mysql # 數據持久化
+        ports:
+            - "3306:3306"
+        networks:
+            - care-network
+
+    vue_app_dev:
+        build:
+            context: ./vue_app
+            dockerfile: Dockerfile.dev # 使用開發專用的 Dockerfile
+        container_name: vue_app_dev
+        volumes:
+            - ./vue_app:/app
+            - /app/node_modules # 防止 host 機器上的 node_modules 覆蓋容器內的
+        ports:
+            - "5173:5173" # Vite 開發伺服器預設 port
+        networks:
+            - care-network
+        depends_on:
+            - laravel_app
+
+networks:
+    care-network:
+        driver: bridge
+
+volumes:
+    db_data: # 持久化 MySQL 數據

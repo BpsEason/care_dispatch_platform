@@ -1,0 +1,1 @@
+<?php namespace App\Http\Controllers\Supervisor; use App\Http\Controllers\Controller; use Illuminate\Http\Request; class PayrollController extends Controller { public function index() { return response()->json(['message' => 'Supervisor Payroll List', 'payrolls' => []]); } }
